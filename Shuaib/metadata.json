@@ -1,0 +1,8 @@
+{
+  "name": "Shuaib 2.0 AI - Digital Teacher",
+  "description": "A patient, friendly digital teacher for Class 6-10 students in Bangladesh, following the NCTB curriculum with a step-by-step teaching methodology.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
