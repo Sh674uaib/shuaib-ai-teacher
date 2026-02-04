@@ -1,56 +1,57 @@
-
-import { GoogleGenAI, GenerateContentResponse, Chat } from "@google/genai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import { SYSTEM_PROMPT } from "../constants";
-import { Message, Attachment } from "../types";
+// TypeScript এর জন্য import type ব্যবহার করা হয়েছে
+import type { Message, Attachment } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+const API_KEY = "AIzaSyCPInx-UJGW85dh3zILv-8pICVgFob2ks8";
+const genAI = new GoogleGenerativeAI(API_KEY);
 
 export const createChatSession = (history: Message[] = []) => {
-  const model = 'gemini-3-pro-preview';
-  
-  // Map our message format to Gemini's history format
-  const mappedHistory = history.map(m => {
-    const parts: any[] = [{ text: m.content }];
-    if (m.attachment) {
-      parts.push({
-        inlineData: {
-          data: m.attachment.data,
-          mimeType: m.attachment.mimeType
-        }
-      });
-    }
-    return {
-      role: m.role,
-      parts
-    };
+  const model = genAI.getGenerativeModel({ 
+    model: "gemini-1.5-flash" 
   });
-  
-  return ai.chats.create({
-    model,
-    history: mappedHistory,
-    config: {
-      systemInstruction: SYSTEM_PROMPT,
+
+  const mappedHistory = history.map(m => ({
+    role: m.role === 'user' ? 'user' : 'model',
+    parts: [{ text: m.content }]
+  }));
+
+  return model.startChat({
+    history: [
+      { role: "user", parts: [{ text: SYSTEM_PROMPT }] },
+      { role: "model", parts: [{ text: "আমি Shuaib 2.0 AI শিক্ষক, তোমাকে সাহায্য করতে প্রস্তুত।" }] },
+      ...mappedHistory,
+    ],
+    generationConfig: {
       temperature: 0.7,
-      topP: 0.95,
-      topK: 64,
+      maxOutputTokens: 2048,
     },
   });
 };
 
-export async function* sendMessageStream(chat: Chat, message: string, attachment?: Attachment) {
-  let parts: any[] = [{ text: message || "এই ফাইলটি সম্পর্কে বলো।" }];
-  
-  if (attachment) {
-    parts.push({
-      inlineData: {
-        data: attachment.data,
-        mimeType: attachment.mimeType
-      }
-    });
-  }
+export async function* sendMessageStream(chat: any, message: string, attachment?: Attachment) {
+  try {
+    const parts: any[] = [];
+    if (message.trim()) parts.push({ text: message });
+    
+    if (attachment) {
+      parts.push({
+        inlineData: {
+          data: attachment.data,
+          mimeType: attachment.mimeType
+        }
+      });
+    }
 
-  const result = await chat.sendMessageStream({ message: parts });
-  for await (const chunk of result) {
-    yield (chunk as GenerateContentResponse).text;
+    if (parts.length === 0) parts.push({ text: "Hello" });
+
+    const result = await chat.sendMessageStream(parts);
+    for await (const chunk of result.stream) {
+      const chunkText = chunk.text();
+      if (chunkText) yield chunkText;
+    }
+  } catch (error) {
+    console.error("Gemini Error:", error);
+    yield "দুঃখিত, গুগল সার্ভারের সাথে যোগাযোগ করা যাচ্ছে না। দয়া করে আবার চেষ্টা করো।";
   }
 }
